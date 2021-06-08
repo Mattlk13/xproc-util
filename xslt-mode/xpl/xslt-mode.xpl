@@ -79,7 +79,7 @@
     </p:input>
   </p:parameters>
   
-  <p:identity>
+  <p:identity name="xslt-mode-source">
     <p:input port="source">
       <p:pipe port="source" step="xslt-mode"/>
     </p:input>
@@ -114,6 +114,9 @@
       </p:choose>
       
       <p:xslt name="xslt">
+        <p:input port="source">
+          <p:pipe port="result" step="xslt-mode-source"/>
+        </p:input>
         <p:with-option name="initial-mode" select="$mode">
           <p:pipe port="stylesheet" step="xslt-mode"/>
         </p:with-option>
@@ -228,6 +231,34 @@
         <p:with-option name="active" select="$debug"/>
         <p:with-option name="base-uri" select="$debug-dir-uri" />
       </tr:store-debug>
+
+      <p:choose>
+        <p:when test="    $debug = 'yes'
+                      and not(matches($debug-dir-uri, 'debug-xslt-on-error=no'))">
+          <cx:message>
+            <p:with-option name="message" 
+              select="concat('DEBUG: RUNNING XSLT FOR ', $debug-file-name)"><p:empty/></p:with-option>
+          </cx:message>
+          <p:xslt name="xslt">
+            <p:with-option name="initial-mode" select="$mode">
+              <p:pipe port="stylesheet" step="xslt-mode"/>
+            </p:with-option>
+            <p:input port="parameters">
+              <p:pipe port="result" step="consolidate-params"/>
+            </p:input>
+            <p:input port="stylesheet">
+              <p:pipe port="stylesheet" step="xslt-mode"/>
+            </p:input>
+            <p:input port="source">
+              <p:pipe port="source" step="xslt-mode"/>
+            </p:input>
+            <p:with-param name="debug" select="$debug"><p:empty/></p:with-param>
+          </p:xslt>
+        </p:when>
+        <p:otherwise>
+          <p:identity/>
+        </p:otherwise>
+      </p:choose>
       
       <!-- if option fail-on-error is set to 'yes', the step fails with the original error code -->
       <p:choose>

@@ -240,8 +240,8 @@
         </p:add-attribute>
       </p:when>
       
-      <p:when test="matches($catalog-resolved-uri, '^file://///[^/]')">
-        <p:documentation>Windows UNC path URI. file:///// → \\ .</p:documentation>
+      <p:when test="matches($catalog-resolved-uri, '^file://[^/]')">
+        <p:documentation>Windows UNC path URI.</p:documentation>
         <p:add-attribute attribute-name="local-href" match="/*">
           <p:with-option name="attribute-value" select="$catalog-resolved-uri"/>
           <p:input port="source">
@@ -251,7 +251,7 @@
           </p:input>
         </p:add-attribute>
         <p:add-attribute match="/*" attribute-name="os-path">
-          <p:with-option name="attribute-value" select="replace(replace($catalog-resolved-uri, '^file:///', ''), '/', '\\')"/>
+          <p:with-option name="attribute-value" select="replace($catalog-resolved-uri, '^file://', '\\')"/>
         </p:add-attribute>
         <tr:unescape-uri attribute-names="os-path"/>
       </p:when>
@@ -279,7 +279,7 @@
       <p:when test="matches($catalog-resolved-uri, '^/')">
         <p:documentation>Unix Filename</p:documentation>
         <p:add-attribute match="/*" attribute-name="local-href">
-          <p:with-option name="attribute-value" select="concat('file:', $catalog-resolved-uri)"/>
+          <p:with-option name="attribute-value" select="concat('file://', $catalog-resolved-uri)"/>
         </p:add-attribute>
         <p:add-attribute match="/*" attribute-name="os-path">
           <p:with-option name="attribute-value" select="$catalog-resolved-uri"/>
@@ -488,23 +488,26 @@
           </p:input>
         </p:identity>
 
-        <p:add-attribute match="/c:request" attribute-name="href">
-          <p:with-option name="attribute-value" select="escape-html-uri($catalog-resolved-uri)"/>
-        </p:add-attribute>
         <p:try name="http-request-check">
           <p:group>
             <p:output port="result" primary="true"/>
+            <p:add-attribute match="/c:request" attribute-name="href">
+              <p:with-option name="attribute-value" select="escape-html-uri($catalog-resolved-uri)"/>
+            </p:add-attribute>
             <p:http-request />
           </p:group>
-          <p:catch>
+          <p:catch name="catch-http-request-check">
             <p:output port="result" primary="true"/>
-            <p:identity>
+            <p:insert match="/*" position="first-child">
               <p:input port="source">
                 <p:inline>
                   <c:response status="999"/>
                 </p:inline>
               </p:input>
-            </p:identity>
+              <p:input port="insertion">
+                <p:pipe port="error" step="catch-http-request-check"/>
+              </p:input>
+            </p:insert>
           </p:catch>
         </p:try>
 
@@ -589,11 +592,11 @@
   </p:group>
 
   <p:add-attribute name="lastpath" attribute-name="lastpath" match="/*">
-    <p:with-option name="attribute-value" select="replace(/*/@local-href, '^.+/([^/]+)/*$', '$1')"/>
+    <p:with-option name="attribute-value" select="replace(/*/@local-href, '^.+/([^/]*)/*$', '$1')"/>
   </p:add-attribute>
   
   <p:add-attribute name="lastpath-os" attribute-name="lastpath-os" match="/*">
-    <p:with-option name="attribute-value" select="replace(/*/@os-path, '^.+/([^/]+)/*$', '$1')"/>
+    <p:with-option name="attribute-value" select="replace(/*/@os-path, '^.*/([^/]*)/*$', '$1')"/>
   </p:add-attribute>
 
   <p:xslt name="add-rel-path">

@@ -67,8 +67,13 @@
     (Question: support font as a category on its own?)</p:documentation>
   </p:option>
 
+  <p:option name="exclude-by-fileext" select="''">
+    <p:documentation>Space-separated list of file extensions. Files which
+    match those extensions are not embedded</p:documentation>
+  </p:option>
+
   <p:option name="max-base64-encoded-size-kb" select="1000">
-      <p:documentation>If this limit in KiloByte is exceeded, the resource will not be embedded.</p:documentation>
+    <p:documentation>If this limit in KiloByte is exceeded, the resource will not be embedded.</p:documentation>
   </p:option>
   
   <p:option name="unavailable-resource-message" select="'no'">
@@ -169,13 +174,16 @@
                                                        html:link/@href, 
                                                        svg:image/@xlink:href)[1],
                                                        '\\', '/')"/>
+    <p:variable name="href-attribute-normalized" 
+                select="replace(replace(replace($href-attribute, '\[', '%5B'), '\]', '%5D'), '\s', '%20')"/>
     <p:variable name="href" 
       select="if(starts-with($href-attribute, 'data:'))  (: leave data URIs as-is :)
-              then $href-attribute
-              else resolve-uri(if(matches($href-attribute, '^(http[s]?|file)://?')) (: resolve regular URIs :) 
-                   then $href-attribute
-                   else concat(replace($local-base-uri, '^(.+/).+$', '$1'), $href-attribute),
+              then $href-attribute-normalized
+              else resolve-uri(if(matches($href-attribute-normalized, '^(http[s]?|file)://?')) (: resolve regular URIs :) 
+                   then $href-attribute-normalized
+                   else concat(replace($local-base-uri, '^(.+/).+$', '$1'), $href-attribute-normalized),
                    $local-base-uri)"/>
+    <p:variable name="fileext" select="lower-case(replace($href, '^.+\.([a-z0-9]+)?$', '$1', 'i'))"/>
     
     <p:choose>
       <p:when test="exists(
@@ -186,7 +194,9 @@
                       | /html:object[@data][$suppress-object]
                       | /html:link[@rel eq 'stylesheet'][@href][$suppress-style]
                       | /svg:image[@xlink:href][$suppress-image]
-                    )">
+                    ) 
+                    or 
+                    $fileext = tokenize(lower-case($exclude-by-fileext), '\s')">
         <p:documentation>Suppress embedding for elements meeting these conditions. Unfortunately, the conditions could not
         be specified in the p:viewport match attribute because options and variables seem to be inaccessible there.</p:documentation>
         <p:identity/>

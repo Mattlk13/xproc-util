@@ -3,16 +3,17 @@
   xmlns:c="http://www.w3.org/ns/xproc-step" 
   xmlns:cx="http://xmlcalabash.com/ns/extensions"
   xmlns:pos="http://exproc.org/proposed/steps/os"
-  xmlns:pxf="http://exproc.org/proposed/steps/file"
+  xmlns:cxf="http://xmlcalabash.com/ns/extensions/fileutils"
   xmlns:tr="http://transpect.io"
   xmlns:xe="http://degruyter.com/xmlns/xml2epub"
   version="1.0"
-  name="imagemagick"
-  type="tr:imagemagick">
+  name="ghostscript"
+  type="tr:ghostscript">
   
   <p:documentation>
-    This is an XProc wrapper for ImageMagick. The ImageMagick executable 
-    needs to be installed on your system.
+    This is an XProc wrapper to convert PostScript to PDF 
+    utilizing GhostScript, which needs to be installed on 
+    your system.
   </p:documentation>
   
   <p:output port="result" primary="true">
@@ -32,22 +33,20 @@
     <p:documentation>dir or path to the output directory. If the directory
                      don't exists, it will be created.</p:documentation>
   </p:option>
-  <p:option name="format" select="'jpg'">
+  <p:option name="format" select="'pdf'">
     <p:documentation>The image will be converted into this format</p:documentation>
   </p:option>
-  <p:option name="imagemagick-options" select="''">
-    <p:documentation>Provide additional options for ImageMagick</p:documentation>
+  <p:option name="options" select="'-sDEVICE=pdfwrite -dEPSCrop'">
+    <p:documentation>Provide additional options for ghostscript. 
+                     Default values are suited for EPS to PDF conversion.</p:documentation>
   </p:option>
-  <p:option name="imagemagick-path" select="''">
-    <p:documentation>Installation path for ImageMagick</p:documentation>
+  <p:option name="install-path" select="''">
+    <p:documentation>Installation path for ghostscript</p:documentation>
   </p:option>  
-  <p:option name="prefix" select="''">
-    <p:documentation>Prefix for new created images</p:documentation>
-  </p:option>
   
   <p:option name="debug" select="'no'"/>
   <p:option name="debug-dir-uri" select="'debug'"/>
-  <p:option name="fail-on-error" select="'false'"/>
+  <p:option name="fail-on-error" select="'true'"/>
   
   <p:import href="http://xmlcalabash.com/extension/steps/library-1.0.xpl"/>
   <p:import href="http://transpect.io/xproc-util/file-uri/xpl/file-uri.xpl"/>
@@ -59,22 +58,22 @@
   
   <pos:info name="os-info"/>
   
-  <tr:file-uri name="imagemagick-path" cx:depends-on="os-info">
-    <p:with-option name="filename" select="if($imagemagick-path eq '')
+  <tr:file-uri name="install-path" cx:depends-on="os-info">
+    <p:with-option name="filename" select="if($install-path eq '')
                                            then if(matches(/c:result/@os-name, 'windows', 'i')) 
-                                                then 'C:/cygwin64/bin/magick.exe'
-                                                else '/usr/bin/convert'
-                                           else $imagemagick-path"/>
+                                                then 'C:/cygwin64/bin/gs.exe'
+                                                else '/usr/bin/gs'
+                                           else $install-path"/>
   </tr:file-uri>
   
   <tr:store-debug>
-    <p:with-option name="pipeline-step" select="concat('imagemagick/', $basename, '/imagemagick-path')"/>
+    <p:with-option name="pipeline-step" select="concat('ghostscript/', $basename, '/install-path')"/>
     <p:with-option name="active" select="$debug"/>
     <p:with-option name="base-uri" select="$debug-dir-uri"/>
   </tr:store-debug>
   
   <cx:message name="msg1">
-    <p:with-option name="message" select="'[info] imagemagick path: ', /c:result/@os-path"/>
+    <p:with-option name="message" select="'[info] ghostscript path: ', /c:result/@os-path"/>
   </cx:message>
   
   <p:sink/>
@@ -90,26 +89,26 @@
   </tr:file-uri>
   
   <tr:store-debug name="debug-outfile-path">
-    <p:with-option name="pipeline-step" select="concat('imagemagick/', $basename, '/outpath')"/>
+    <p:with-option name="pipeline-step" select="concat('ghostscript/', $basename, '/outpath')"/>
     <p:with-option name="active" select="$debug"/>
     <p:with-option name="base-uri" select="$debug-dir-uri"/>
   </tr:store-debug>
   
-  <pxf:mkdir name="mkdir">
+  <cxf:mkdir name="mkdir">
     <p:with-option name="href" select="replace(/c:result/@href, '^(.+)/.+$', '$1')"/>
     <p:with-option name="fail-on-error" select="$fail-on-error"/>
-  </pxf:mkdir>
+  </cxf:mkdir>
   
   <tr:store-debug name="debug-sourcefile-path">
     <p:input port="source">
       <p:pipe port="result" step="file-path"/>
     </p:input>
-    <p:with-option name="pipeline-step" select="concat('imagemagick/', $basename, '/sourcefile')"/>
+    <p:with-option name="pipeline-step" select="concat('ghostscript/', $basename, '/sourcefile')"/>
     <p:with-option name="active" select="$debug"/>
     <p:with-option name="base-uri" select="$debug-dir-uri"/>
   </tr:store-debug>
   
-  <p:try name="exec-group" cx:depends-on="mkdir">
+  <p:try name="exec-group" cxf:depends-on="mkdir">
     <p:group>
       <p:output port="result" primary="true"/>
       <p:output port="report" primary="false" sequence="true">
@@ -121,33 +120,20 @@
                           '$1', 'i')">
         <p:pipe port="result" step="outfile-path"/>
       </p:variable>
-      <p:variable name="image-stripped-outpath-prefix"
-                  select="replace($image-stripped-outpath,
-                          /c:result/@lastpath-os,
-                          concat($prefix,/c:result/@lastpath-os), 'i')">
-        <p:pipe port="result" step="outfile-path"/>
-      </p:variable>
       <p:variable name="arg-separator" select="' '"/>
       
-      <cx:message name="msg2">
-        <p:with-option name="message" select="'[info] ', /c:result/@os-path">
-          <p:pipe port="result" step="outfile-path"/>
-        </p:with-option>
-      </cx:message>
-      
       <p:exec name="exec" wrap-error-lines="true" wrap-result-lines="true" 
-              result-is-xml="false" cx:depends-on="imagemagick-path">
+              result-is-xml="false" cx:depends-on="install-path">
         <p:with-option name="command" select="/c:result/@os-path">
-          <p:pipe port="result" step="imagemagick-path"/>
+          <p:pipe port="result" step="install-path"/>
         </p:with-option>
         <p:with-option name="arg-separator" select="$arg-separator"/>
         <p:with-option name="args" 
-                       select="string-join(('-verbose -format',
-                                            $format,
-                                            $imagemagick-options,
-                                            concat(/c:result/@rel-path, '[0]'),
-                                            $image-stripped-outpath-prefix
-                                            ), 
+                       select="string-join(($options,
+                                            '-o',
+                                            $image-stripped-outpath,
+                                            /c:result/@rel-path
+                                            ),
                                             $arg-separator)">
           <p:pipe port="result" step="file-path"/>
         </p:with-option>
@@ -157,7 +143,7 @@
         </p:input>
       </p:exec>
       
-      <p:wrap-sequence wrapper="imagemagick" name="wrap-imagemagick-output-for-debugging">
+      <p:wrap-sequence wrapper="ghostscript" name="wrap-ghostscript-output-for-debugging">
         <p:input port="source">
           <p:pipe port="result" step="exec"/>
           <p:pipe port="errors" step="exec"/>
@@ -166,7 +152,7 @@
       </p:wrap-sequence>
       
       <tr:store-debug name="debug-output-ok">
-        <p:with-option name="pipeline-step" select="concat('imagemagick/', $basename, '/conversion-log')"/>
+        <p:with-option name="pipeline-step" select="concat('ghostscript/', $basename, '/conversion-log')"/>
         <p:with-option name="active" select="$debug"/>
         <p:with-option name="base-uri" select="$debug-dir-uri"/>
       </tr:store-debug>
@@ -200,7 +186,7 @@
       </cx:message>
       
       <tr:store-debug name="debug-output-error">
-        <p:with-option name="pipeline-step" select="concat('imagemagick/', $basename, '/conversion-log')"/>
+        <p:with-option name="pipeline-step" select="concat('ghostscript/', $basename, '/conversion-log')"/>
         <p:with-option name="active" select="$debug"/>
         <p:with-option name="base-uri" select="$debug-dir-uri"/>
       </tr:store-debug>
@@ -223,7 +209,7 @@
   </p:try>
   
   <tr:store-debug name="debug-output">
-    <p:with-option name="pipeline-step" select="concat('imagemagick/', $basename, '/output')"/>
+    <p:with-option name="pipeline-step" select="concat('ghostscript/', $basename, '/output')"/>
     <p:with-option name="active" select="$debug"/>
     <p:with-option name="base-uri" select="$debug-dir-uri"/>
   </tr:store-debug>
