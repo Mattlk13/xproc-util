@@ -364,12 +364,12 @@
             <p:pipe port="result" step="tmp-dir"/>
           </p:variable>
 
-           <p:variable name="filename" select="replace(c:response/c:header[@name='Content-Disposition']/@value,
+           <p:variable name="filename" select="replace(c:response/c:header[matches(@name,'Content-Disposition','i')][1]/@value,
                                              '^.*filename=&#34;(.*)&#34;;.*$',
                                              '$1')">
                   <p:pipe port="result" step="http-request"/>
           </p:variable>
-
+          
           <p:add-attribute attribute-name="local-href" match="/*" name="local-href">
             <p:input port="source">
               <p:pipe port="result" step="uuid"/>
